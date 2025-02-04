@@ -1,4 +1,3 @@
-# app.py
 from flask import Flask, render_template
 import mysql.connector
 from config import DATABASE_CONFIG
