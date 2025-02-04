@@ -2,8 +2,16 @@ version: '3'
 
 services:
   python-app:
+    container_name: app
+    hostname: app
     build:
       context: .
       dockerfile: Dockerfile
     ports:
       - "5000:5000"
+  mariadb:
+    container_name: mariadb
+    hostname: mariadb
+    image: mariadb
+    environment:
+      - MARIADB_ROOT_PASSWORD=123

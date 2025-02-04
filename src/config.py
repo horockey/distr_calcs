@@ -1,7 +1,7 @@
 DATABASE_CONFIG = {
-    'host': 'localhost',
+    'host': 'mariadb',
     'port': 3306,
-    'user': 'site',
+    'user': 'root',
     'password': '123',
     'database': 'site_visits'
 }
