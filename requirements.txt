@@ -1,3 +1,2 @@
+clickhouse_connect==0.8.15
 Flask==3.1.0
-mysql_connector_repackaged==0.3.1
-mysql-connector-python

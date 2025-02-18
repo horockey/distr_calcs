@@ -1,57 +1,90 @@
-from flask import Flask, render_template
-import mysql.connector
-from config import DATABASE_CONFIG
+from flask import Flask, render_template, request
+import clickhouse_connect
+import os
+import datetime
 
 app = Flask(__name__)
 
 
 def get_db_connection():
-    return mysql.connector.connect(**DATABASE_CONFIG)
+    try:
+        conn = clickhouse_connect.get_client(
+            host=os.getenv("CLICKHOUSE_HOST"), password="default")
+    except Exception as e:
+        print(e)
+        raise e
+    return conn
 
 
 @app.route('/page1')
 def index1():
     try:
-        index('/page1')
+        return index('/page1')
     except Exception as err:
-        return f"Error accessing database: {err}", 500
+        print(f"Error serving endpoint: {err}")
+        return err, 500
 
 
 @app.route('/page2')
 def index2():
     try:
-        index('/page2')
+        return index('/page2')
     except Exception as err:
-        return f"Error accessing database: {err}", 500
+        print(f"Error serving endpoint: {err}")
+        return err, 500
 
 
 def index(path):
-    cnx = get_db_connection()
+    try:
+        cnx = get_db_connection()
 
-    cnx.cmd_init_db('site_visits')
-    cnx.cmd_query(
-        """CREATE TABLE IF NOT EXISTS journal (
-            time,
-            path,
-            src_ip,
-            user_agent,
-            primary key (time, path, src_ip)
-        );""")
-    cursor = cnx.cursor(dictionary=True)
+        cnx.command("CREATE DATABASE IF NOT EXISTS site_visits")
+        cnx.command(
+            """CREATE TABLE IF NOT EXISTS site_visits.journal (
+                time DateTime,
+                path String,
+                src_ip String,
+                user_agent String,
+            ) engine = MergeTree() order by time;""")
+        cnx.command(
+            """INSERT INTO site_visits.journal
+                    (
+                        time,
+                        path,
+                        src_ip,
+                        user_agent,
+                    )
+                    VALUES
+                    (
+                        %(time)s,
+                        %(path)s,
+                        %(src_ip)s,
+                        '%(user_agent)s'
+                    )
+        """, parameters={
+                "time": datetime.datetime.now(),
+                "path": path,
+                "src_ip": request.remote_addr,
+                "user_agent": request.user_agent,
+            },
+        )
+        res = cnx.query("""
+            SELECT time, src_ip, user_agent
+            FROM site_visits.journal
+            WHERE path = %(path)s
+            ORDER BY time DESC
+        """, parameters={"path": path})
+        data = []
+        for row in res.result_rows:
+            data.append(
+                {"time": row[0], "src_ip": row[1], "user_agent": row[2]}
+            )
+        render = render_template('index.html', data=data)
 
-    query = """
-        SELECT time, src_ip, user_agent
-        FROM site_visits.journal
-        WHERE path = ?
-        ORDER BY time DESC
-    """
-    cursor.execute(query, params={'path': path})
-
-    rows = cursor.fetchall()
-    cursor.close()
-    cnx.close()
-
-    return render_template('index.html', data=rows)
+    except Exception as e:
+        print(e)
+        raise e
+    return render
 
 
 if __name__ == '__main__':
