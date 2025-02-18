@@ -1,18 +1,28 @@
 version: '3'
 
 services:
+  nginx:
+    image: nginx
+    hostname: nginx
+    container_name: nginx
+    restart: unless-stopped
+    environment:
+      TZ: "Europe/Moscow"
+    ports:
+      - 80:80
+      - 443:443
+    volumes:
+      - "./cfg/nginx/conf.d:/etc/nginx/conf.d"
   python-app:
     container_name: app
     hostname: app
     build:
       context: .
       dockerfile: Dockerfile
-    ports:
-      - "5000:5000"
     environment:
       - CLICKHOUSE_HOST=clickhouse
   clickhouse:
-    container_name: clickhose
+    container_name: clickhouse
     hostname: clickhouse
     image: clickhouse/clickhouse-server
     ports:
